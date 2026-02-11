@@ -33,6 +33,34 @@ tmux ls | grep nanobot
 
 > `pip install -e .` 是可编辑安装：源码变更对新进程生效，但已在运行的 `nanobot gateway` 进程不会自动热重载，需重启 tmux 会话。
 
+## 🔄 更新（PM2 后台运行）
+
+如果你是这样启动网关：
+
+```bash
+pm2 start nanobot --name nanobot --interpreter none -- gateway
+```
+
+更新代码后，建议按下面顺序执行：
+
+```bash
+git pull --ff-only
+pip install -e .
+pm2 restart nanobot
+```
+
+首次启动（或进程不存在）可使用：
+
+```bash
+pm2 start nanobot --name nanobot --interpreter none -- gateway
+```
+
+检查是否启动成功：
+
+```bash
+pm2 status nanobot
+```
+
 ## 🚀 快速开始
 
 > [!TIP]
