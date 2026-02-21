@@ -15,7 +15,8 @@ pip install -e .
 PM2 后台运行启动（或进程不存在）可使用：
 
 ```bash
-pm2 start nanobot --name nanobot --interpreter none -- gateway
+pm2 delete nanobot
+pm2 start "$(command -v nanobot)" --name nanobot --interpreter none -- gateway
 ```
 
 检查是否启动成功：
