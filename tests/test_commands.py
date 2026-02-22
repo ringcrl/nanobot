@@ -1,15 +1,26 @@
+import asyncio
 import shutil
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
 
+from nanobot.agent.loop import AgentLoop
+from nanobot.bus.queue import MessageBus
 from nanobot.cli.commands import app
 from nanobot.config.schema import Config
+from nanobot.providers.base import LLMProvider, LLMResponse
 from nanobot.providers.litellm_provider import LiteLLMProvider
 from nanobot.providers.openai_codex_provider import _strip_model_prefix
+from nanobot.providers.reasoning import (
+    ReasoningEffort,
+    normalize_reasoning_effort,
+    openai_chat_reasoning_effort,
+)
 from nanobot.providers.registry import find_by_model
+from nanobot.session.manager import Session
 
 runner = CliRunner()
 
@@ -128,3 +139,74 @@ def test_litellm_provider_canonicalizes_github_copilot_hyphen_prefix():
 def test_openai_codex_strip_prefix_supports_hyphen_and_underscore():
     assert _strip_model_prefix("openai-codex/gpt-5.1-codex") == "gpt-5.1-codex"
     assert _strip_model_prefix("openai_codex/gpt-5.1-codex") == "gpt-5.1-codex"
+
+
+class CaptureProvider(LLMProvider):
+    def __init__(self):
+        super().__init__(api_key=None, api_base=None)
+        self.calls: list[dict[str, Any]] = []
+
+    async def chat(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.7,
+        reasoning_effort: ReasoningEffort | None = None,
+    ) -> LLMResponse:
+        self.calls.append(
+            {
+                "messages": messages,
+                "tools": tools,
+                "model": model,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "reasoning_effort": reasoning_effort,
+            }
+        )
+        return LLMResponse(
+            content='{"history_entry":"[2026-02-22 10:00] test","memory_update":"memo"}',
+            finish_reason="stop",
+        )
+
+    def get_default_model(self) -> str:
+        return "openai-codex/gpt-5.1-codex"
+
+
+def test_reasoning_effort_normalization():
+    assert normalize_reasoning_effort(" HIGH ") == "high"
+    assert normalize_reasoning_effort("Medium") == "medium"
+    assert normalize_reasoning_effort("bad-value") is None
+    assert normalize_reasoning_effort("") is None
+
+
+def test_openai_chat_reasoning_effort_filtering():
+    assert openai_chat_reasoning_effort("low") == "low"
+    assert openai_chat_reasoning_effort("medium") == "medium"
+    assert openai_chat_reasoning_effort("high") == "high"
+    assert openai_chat_reasoning_effort("none") is None
+    assert openai_chat_reasoning_effort("xhigh") is None
+
+
+def test_memory_consolidation_forwards_reasoning_effort(tmp_path: Path):
+    provider = CaptureProvider()
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=provider,
+        workspace=tmp_path,
+        memory_window=2,
+        reasoning_effort="high",
+    )
+    session = Session(key="cli:direct")
+    session.add_message("user", "hello")
+    session.add_message("assistant", "world")
+    session.add_message("user", "again")
+
+    asyncio.run(loop._consolidate_memory(session))
+
+    assert provider.calls
+    call = provider.calls[0]
+    assert call["reasoning_effort"] == "high"
+    assert call["temperature"] == loop.temperature
+    assert call["max_tokens"] == loop.max_tokens

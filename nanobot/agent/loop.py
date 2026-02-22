@@ -25,6 +25,7 @@ from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
 from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.providers.base import LLMProvider
+from nanobot.providers.reasoning import ReasoningEffort
 from nanobot.session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
@@ -60,6 +61,7 @@ class AgentLoop:
         restrict_to_workspace: bool = False,
         session_manager: SessionManager | None = None,
         mcp_servers: dict | None = None,
+        reasoning_effort: ReasoningEffort | None = None,
     ):
         from nanobot.config.schema import ExecToolConfig
         self.bus = bus
@@ -70,6 +72,7 @@ class AgentLoop:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.memory_window = memory_window
+        self.reasoning_effort = reasoning_effort
         self.brave_api_key = brave_api_key
         self.exec_config = exec_config or ExecToolConfig()
         self.cron_service = cron_service
@@ -85,6 +88,7 @@ class AgentLoop:
             model=self.model,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
+            reasoning_effort=reasoning_effort,
             brave_api_key=brave_api_key,
             exec_config=self.exec_config,
             restrict_to_workspace=restrict_to_workspace,
@@ -213,6 +217,7 @@ class AgentLoop:
                 model=self.model,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
+                reasoning_effort=self.reasoning_effort,
             )
 
             if response.has_tool_calls:
@@ -516,6 +521,9 @@ Respond with ONLY valid JSON, no markdown fences."""
                     {"role": "user", "content": prompt},
                 ],
                 model=self.model,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                reasoning_effort=self.reasoning_effort,
             )
             text = (response.content or "").strip()
             if not text:

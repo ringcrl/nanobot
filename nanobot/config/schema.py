@@ -1,9 +1,12 @@
 """Configuration schema using Pydantic."""
 
 from pathlib import Path
+
 from pydantic import BaseModel, Field, ConfigDict
 from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings
+
+from nanobot.providers.reasoning import ReasoningEffort
 
 
 class Base(BaseModel):
@@ -188,6 +191,7 @@ class AgentDefaults(Base):
     temperature: float = 0.7
     max_tool_iterations: int = 20
     memory_window: int = 50
+    reasoning_effort: ReasoningEffort | None = None
 
 
 class AgentsConfig(Base):

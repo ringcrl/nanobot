@@ -5,9 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 import json_repair
+from loguru import logger
 from openai import AsyncOpenAI
 
 from nanobot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+from nanobot.providers.reasoning import ReasoningEffort, normalize_reasoning_effort, openai_chat_reasoning_effort
 
 
 class CustomProvider(LLMProvider):
@@ -18,9 +20,15 @@ class CustomProvider(LLMProvider):
         self._client = AsyncOpenAI(api_key=api_key, base_url=api_base)
 
     async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
-                   model: str | None = None, max_tokens: int = 4096, temperature: float = 0.7) -> LLMResponse:
+                   model: str | None = None, max_tokens: int = 4096, temperature: float = 0.7,
+                   reasoning_effort: ReasoningEffort | None = None) -> LLMResponse:
         kwargs: dict[str, Any] = {"model": model or self.default_model, "messages": messages,
                                   "max_tokens": max(1, max_tokens), "temperature": temperature}
+        effort = openai_chat_reasoning_effort(reasoning_effort)
+        if effort:
+            kwargs["reasoning_effort"] = effort
+        elif normalize_reasoning_effort(reasoning_effort):
+            logger.debug("Custom provider ignores reasoning_effort='{}' for chat.completions", reasoning_effort)
         if tools:
             kwargs.update(tools=tools, tool_choice="auto")
         try:

@@ -11,6 +11,7 @@ from loguru import logger
 from nanobot.bus.events import InboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.providers.base import LLMProvider
+from nanobot.providers.reasoning import ReasoningEffort
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.filesystem import ReadFileTool, WriteFileTool, EditFileTool, ListDirTool
 from nanobot.agent.tools.shell import ExecTool
@@ -37,6 +38,7 @@ class SubagentManager:
         brave_api_key: str | None = None,
         exec_config: "ExecToolConfig | None" = None,
         restrict_to_workspace: bool = False,
+        reasoning_effort: ReasoningEffort | None = None,
     ):
         from nanobot.config.schema import ExecToolConfig
         self.provider = provider
@@ -45,6 +47,7 @@ class SubagentManager:
         self.model = model or provider.get_default_model()
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.reasoning_effort = reasoning_effort
         self.brave_api_key = brave_api_key
         self.exec_config = exec_config or ExecToolConfig()
         self.restrict_to_workspace = restrict_to_workspace
@@ -136,6 +139,7 @@ class SubagentManager:
                     model=self.model,
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
+                    reasoning_effort=self.reasoning_effort,
                 )
                 
                 if response.has_tool_calls:

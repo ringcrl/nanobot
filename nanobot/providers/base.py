@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from nanobot.providers.reasoning import ReasoningEffort
+
 
 @dataclass
 class ToolCallRequest:
@@ -48,6 +50,7 @@ class LLMProvider(ABC):
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
+        reasoning_effort: ReasoningEffort | None = None,
     ) -> LLMResponse:
         """
         Send a chat completion request.

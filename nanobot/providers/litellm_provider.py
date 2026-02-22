@@ -7,8 +7,10 @@ from typing import Any
 
 import litellm
 from litellm import acompletion
+from loguru import logger
 
 from nanobot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+from nanobot.providers.reasoning import ReasoningEffort, normalize_reasoning_effort, openai_chat_reasoning_effort
 from nanobot.providers.registry import find_by_model, find_gateway
 
 
@@ -170,6 +172,7 @@ class LiteLLMProvider(LLMProvider):
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
+        reasoning_effort: ReasoningEffort | None = None,
     ) -> LLMResponse:
         """
         Send a chat completion request via LiteLLM.
@@ -200,6 +203,16 @@ class LiteLLMProvider(LLMProvider):
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
+
+        effort = openai_chat_reasoning_effort(reasoning_effort)
+        if effort:
+            kwargs["reasoning_effort"] = effort
+        elif normalize_reasoning_effort(reasoning_effort):
+            logger.debug(
+                "Skipping reasoning_effort='{}' for model '{}' (chat-completions path)",
+                reasoning_effort,
+                original_model,
+            )
         
         # Apply model-specific overrides (e.g. kimi-k2.5 temperature)
         self._apply_model_overrides(model, kwargs)
